@@ -1,3 +1,4 @@
+# reportes.py
 import json
 from collections import defaultdict
 
@@ -6,17 +7,70 @@ def cargar_datos(ruta):
     with open(ruta, 'r', encoding='utf-8') as archivo:
         return json.load(archivo)
 
+# Función para guardar datos en un archivo JSON
+def guardar_datos(ruta, datos):
+    with open(ruta, 'w', encoding='utf-8') as archivo:
+        json.dump(datos, archivo, ensure_ascii=False, indent=4)
+
 # Cargar datos iniciales
 poblacion = cargar_datos('poblacion.json')
 paises = cargar_datos('paises.json')
 indicadores = cargar_datos('indicadores.json')
 
-# Función para obtener el nombre del país desde el usuario
-def solicitar_pais():
-    print("Países disponibles:")
-    for pais in paises:
-        print(f"- {pais['nombre']}")
-    return input("Ingrese el nombre del país: ")
+# Función para validar si un país existe en la base de datos
+def validar_pais(nombre_pais):
+    return any(pais['nombre'] == nombre_pais for pais in paises)
+
+# Función para agregar un nuevo país
+def agregar_nuevo_pais():
+    nombre = input("Ingrese el nombre del país: ")
+    codigo_iso = input("Ingrese el código ISO del país: ")
+    codigo_iso3 = input("Ingrese el código ISO3 del país: ")
+
+    nuevo_pais = {
+        "nombre": nombre,
+        "codigo_iso": codigo_iso,
+        "codigo_iso3": codigo_iso3
+    }
+
+    if validar_pais(nombre):
+        print("El país ya existe en la base de datos.")
+    else:
+        paises.append(nuevo_pais)
+        guardar_datos('paises.json', paises)
+        print(f"País '{nombre}' agregado correctamente.")
+
+# Función para registrar un nuevo dato de población
+def registrar_nuevo_dato_poblacion():
+    pais = input("Ingrese el nombre del país: ")
+    if not validar_pais(pais):
+        print(f"El país '{pais}' no existe en la base de datos.")
+        return
+
+    año = int(input("Ingrese el año del dato: "))
+    indicador_id = input("Ingrese el ID del indicador (ej. SP.POP.TOTL): ")
+    descripcion = input("Ingrese la descripción del indicador: ")
+    valor = float(input("Ingrese el valor de la población: "))
+    estado = input("Ingrese el estado de la observación (disponible/no disponible): ")
+    unidad = input("Ingrese la unidad de medida (ej. personas): ")
+
+    nuevo_dato = {
+        "ano": año,
+        "pais": pais,
+        "codigo_iso3": next(pais['codigo_iso3'] for pais in paises if pais['nombre'] == pais),
+        "indicador_id": indicador_id,
+        "descripcion": descripcion,
+        "valor": valor,
+        "estado": estado,
+        "unidad": unidad
+    }
+
+    if any(dato['pais'] == pais and dato['ano'] == año and dato['indicador_id'] == indicador_id for dato in poblacion):
+        print("El dato ya existe en la base de datos.")
+    else:
+        poblacion.append(nuevo_dato)
+        guardar_datos('poblacion.json', poblacion)
+        print(f"Dato de población para '{pais}' en el año {año} registrado correctamente.")
 
 # 1. Obtener todos los datos de población para un país desde 2000 hasta 2023
 def obtener_poblacion_por_pais_y_año(pais, año_inicio=2000, año_fin=2023):
@@ -59,13 +113,6 @@ def calcular_crecimiento_poblacional(pais, año_inicio, año_fin):
     valor_fin = datos[-1]['valor']
     crecimiento = ((valor_fin - valor_inicio) / valor_inicio) * 100
     return f"{crecimiento:.2f}%"
-
-# 9. Población de un país en un año específico (si está disponible)
-def obtener_poblacion_por_pais_y_año_especifico(pais, año):
-    for dato in poblacion:
-        if dato['pais'] == pais and dato['ano'] == año:
-            return dato['valor']
-    return "Dato no disponible"
 
 # 10. Obtener el año con la población más baja para un país
 def obtener_ano_poblacion_mas_baja(pais):
@@ -125,13 +172,6 @@ def paises_con_datos_2000_2023():
             resultados[dato['ano']].append(dato['pais'])
     return dict(resultados)
 
-# 19. Población total de un país en un año específico
-def obtener_poblacion_por_pais_y_año_especifico(pais, año):
-    for dato in poblacion:
-        if dato['pais'] == pais and dato['ano'] == año:
-            return dato['valor']
-    return "Dato no disponible"
-
 # 20. Años en los que la población de un país creció más de un valor específico en comparación con el año anterior
 def años_crecimiento_mayor_que(pais, valor):
     datos = [dato for dato in poblacion if dato['pais'] == pais]
@@ -149,10 +189,6 @@ def poblacion_por_decada(pais):
             decada = (dato['ano'] // 10) * 10
             decadas[decada] += dato['valor']
     return dict(decadas)
-
-# 22. Población total registrada para todos los países en un año específico
-def obtener_poblacion_total_por_año(año):
-    return sum(dato['valor'] for dato in poblacion if dato['ano'] == año)
 
 # 23. Años en los que no hay datos de población disponibles para un país
 def años_sin_datos_por_pais(pais):
